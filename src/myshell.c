@@ -296,16 +296,27 @@ int main()
   int status;
   int pid = fork();
 
-  if (pid == 0) {
-    execl ("/bin/sh", "/bin/sh", "-c", "ping -c 3 google.com", NULL);
+  if (pid == 0)
+  {
+    execl("/bin/sh", "/bin/sh", "-c", "ping -c 3 google.com", NULL);
     _exit(EXIT_FAILURE);
-  } else if (pid < 0) {
+  }
+  else if (pid < 0)
+  {
     status = -1;
     printf("pig poop %d\n", status);
-  } else {
-    if (waitpid(pid, &status,0) != pid) status = 1;
   }
-    printf("yeah %d\n", status);
+  else
+  {
+    printf(">>>> main()\n");
+    if (waitpid(pid, &status, 0) != pid)
+      status = 1;
+    else
+    {
+      printf(">>>> yeah %d\n", status);
+    }
+  }
+  printf(">>>> just before init()\n");
 
   init();
 
