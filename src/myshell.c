@@ -293,6 +293,20 @@ int main()
   char cmd[CMD_BUF_SIZE];
   char parsedArgs[CMD_ARGS_SIZE][CMD_BUF_SIZE];
 
+  int status;
+  int pid = fork();
+
+  if (pid == 0) {
+    execl ("/bin/sh", "/bin/sh", "-c", "ping -c 3 google.com", NULL);
+    _exit(EXIT_FAILURE);
+  } else if (pid < 0) {
+    status = -1;
+    printf("pig poop %d\n", status);
+  } else {
+    if (waitpid(pid, &status,0) != pid) status = 1;
+  }
+    printf("yeah %d\n", status);
+
   init();
 
   while (1)
