@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include "exit-utils.h"
 
 #define CMD_BUF_SIZE 1024
 #define CMD_ARGS_SIZE 2
@@ -20,6 +21,27 @@
 #define CMD_HIST_STR "hist"
 #define HISTORY_FILENAME ".history"
 #define STR_SPACE " "
+
+static const int kExecFailed = 1;
+static int sysCmd(const char *command)
+{
+  pid_t pid = fork();
+  if (pid == 0)
+  {
+    char *arguments[] = {"/bin/sh", "-c", (char *)command, NULL};
+    // char *arguments[] = {"ls", "-alF", NULL};
+    execvp(arguments[0], arguments);
+    exitIf(true, kExecFailed, stderr, "[CHILD] execvp failed to invoke this: %s.\n", command);
+  }
+
+  int status;
+  waitpid(pid, &status, 0);
+
+  if (WIFEXITED(status))
+    return WEXITSTATUS(status);
+  else
+    return -WTERMSIG(status);
+}
 
 void init()
 {
@@ -176,17 +198,10 @@ void cmdHist(void)
 /**
  * Command Handler
  */
-int cmdHandler(char cmd[CMD_BUF_SIZE], char args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
+int cmdHandler(char command[CMD_BUF_SIZE], char cmd[CMD_BUF_SIZE], char args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
 {
   char builtInCommands[CMD_NUMBER][CMD_BUF_SIZE];
   int switchCmdNum = 0;
-
-  printf("dc>> %s\n", cmd);
-
-  for (int i = 0; i < CMD_ARGS_SIZE; i++)
-  {
-    printf("da>> %s\n", args[i]);
-  }
 
   // Load the built-in command array
   strcpy(builtInCommands[0], CMD_EXIT_STR);
@@ -231,6 +246,7 @@ int cmdHandler(char cmd[CMD_BUF_SIZE], char args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
     cmdHist();
     break;
   default:
+    printf(">>>> Linux RetCode=%d\n", sysCmd(command));
     break;
   }
 
@@ -290,47 +306,25 @@ void resetBuffers(char cmd[CMD_BUF_SIZE], char parsed_args[CMD_ARGS_SIZE][CMD_BU
  */
 int main()
 {
+  char command[CMD_BUF_SIZE];
   char cmd[CMD_BUF_SIZE];
   char parsedArgs[CMD_ARGS_SIZE][CMD_BUF_SIZE];
-
-  int status;
-  int pid = fork();
-
-  if (pid == 0)
-  {
-    execl("/bin/sh", "/bin/sh", "-c", "ping -c 3 google.com", NULL);
-    _exit(EXIT_FAILURE);
-  }
-  else if (pid < 0)
-  {
-    status = -1;
-    printf("pig poop %d\n", status);
-  }
-  else
-  {
-    printf(">>>> main()\n");
-    if (waitpid(pid, &status, 0) != pid)
-      status = 1;
-    else
-    {
-      printf(">>>> yeah %d\n", status);
-    }
-  }
-  printf(">>>> just before init()\n");
 
   init();
 
   while (1)
   {
     printDir();
-    if (readStdin(cmd))
+    if (readStdin(command))
     {
       continue;
     }
+    // Needed for fork() and execvp()
+    strcpy(cmd, command);
     // Parse the user's input
     parseStdin(cmd, parsedArgs);
     // Handle all commands
-    cmdHandler(cmd, parsedArgs);
+    cmdHandler(command, cmd, parsedArgs);
     // Reset all the buffers
     resetBuffers(cmd, parsedArgs);
   }
