@@ -12,6 +12,9 @@ BDIR=./bin
 bld: 
 	[ -d $(BDIR) ] || mkdir -p $(BDIR) 
 	$(CC) $(CFLAGS) $(SDIR)/myshell.c -o $(BDIR)/mysh -lreadline
+bld.sc: 
+	[ -d $(BDIR) ] || mkdir -p $(BDIR) 
+	$(CC) $(CFLAGS) $(SDIR)/sys-cmd.c -o $(BDIR)/sys-cmd -lreadline
 run:
 	$(BDIR)/mysh
 
