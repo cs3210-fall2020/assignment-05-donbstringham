@@ -10,8 +10,8 @@
 #include "exit-utils.h"
 
 #define CMD_BUF_SIZE 1024
-#define CMD_ARGS_SIZE 2
-#define CMD_NUMBER 7
+#define CMD_ARGS_SIZE 32
+#define CMD_BUILTIN_NUMBER 7
 #define CMD_EXIT_STR "exit"
 #define CMD_HELP_STR "help"
 #define CMD_LS_STR "ls"
@@ -20,11 +20,13 @@
 #define CMD_CAT_STR "cat"
 #define CMD_HIST_STR "hist"
 #define HISTORY_FILENAME ".history"
+#define STR_EMPTY ""
 #define STR_SPACE " "
 
 static const int kExecFailed = 1;
-static int sysCmd(const char *command)
+static int sysCmd(char command[CMD_BUF_SIZE])
 {
+  printf(">>>> command=%s\n", command);
   pid_t pid = fork();
   if (pid == 0)
   {
@@ -198,10 +200,12 @@ void cmdHist(void)
 /**
  * Command Handler
  */
-int cmdHandler(char command[CMD_BUF_SIZE], char cmd[CMD_BUF_SIZE], char args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
+int cmdHandler(char args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
 {
-  char builtInCommands[CMD_NUMBER][CMD_BUF_SIZE];
+  char builtInCommands[CMD_BUILTIN_NUMBER][CMD_BUF_SIZE];
+  char command[CMD_BUF_SIZE];
   int switchCmdNum = 0;
+  int i = 1;
 
   // Load the built-in command array
   strcpy(builtInCommands[0], CMD_EXIT_STR);
@@ -213,9 +217,9 @@ int cmdHandler(char command[CMD_BUF_SIZE], char cmd[CMD_BUF_SIZE], char args[CMD
   strcpy(builtInCommands[6], CMD_HIST_STR);
 
   // Convert to integer for faster case processing
-  for (int i = 0; i < CMD_NUMBER; i++)
+  for (int i = 0; i < CMD_BUILTIN_NUMBER; i++)
   {
-    if (strcmp(cmd, builtInCommands[i]) == 0)
+    if (strcmp(args[0], builtInCommands[i]) == 0)
     {
       switchCmdNum = i + 1;
       break;
@@ -231,21 +235,29 @@ int cmdHandler(char command[CMD_BUF_SIZE], char cmd[CMD_BUF_SIZE], char args[CMD
     showHelp();
     break;
   case 3:
-    cmdCat(args[0]);
+    cmdCat(args[1]);
     break;
   case 4:
-    cmdCp(args[0], args[1]);
+    cmdCp(args[1], args[2]);
     break;
   case 5:
-    cmdLs(args[0]);
+    cmdLs(args[1]);
     break;
   case 6:
-    cmdRm(args[0]);
+    cmdRm(args[1]);
     break;
   case 7:
     cmdHist();
     break;
   default:
+    i = 1; // Just being extra SAFE!
+    strcpy(command, args[0]);
+    while (strcmp(args[i], STR_EMPTY) != 0)
+    {
+      strcat(command, STR_SPACE);
+      strcat(command, args[i]);
+      i = i + 1;
+    }
     printf(">>>> Linux RetCode=%d\n", sysCmd(command));
     break;
   }
@@ -269,19 +281,20 @@ int readStdin(char *str)
 
   return 1;
 }
-
+/**
+ *  parsed_args[0] = Linux system command (ex. ls, ping, cat, ...)
+ *  parsed_args[1] = first argument
+ *  parsed_args[2] = second argument
+ *  parsed_args[3] = third argument
+ *  ... and so on ...
+ */
 void parseStdin(char cmd[CMD_BUF_SIZE], char parsed_args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
 {
-
   int i = 0;
-  char *token = strtok(cmd, STR_SPACE);
 
-  token = strtok(NULL, STR_SPACE);
-
-  while (token)
+  for (char *t = strtok(cmd, " "); t != NULL; t = strtok(NULL, " "))
   {
-    strcpy(parsed_args[i++], token);
-    token = strtok(NULL, STR_SPACE);
+    strcpy(parsed_args[i++], t);
   }
 }
 
@@ -295,9 +308,9 @@ void printDir()
 void resetBuffers(char cmd[CMD_BUF_SIZE], char parsed_args[CMD_ARGS_SIZE][CMD_BUF_SIZE])
 {
   strcpy(cmd, STR_SPACE);
-  for (int i = 0; i < CMD_NUMBER; i++)
+  for (int i = 0; i < CMD_ARGS_SIZE; i++)
   {
-    strcpy(parsed_args[i], STR_SPACE);
+    strcpy(parsed_args[i], STR_EMPTY);
   }
 }
 
@@ -306,25 +319,25 @@ void resetBuffers(char cmd[CMD_BUF_SIZE], char parsed_args[CMD_ARGS_SIZE][CMD_BU
  */
 int main()
 {
-  char command[CMD_BUF_SIZE];
   char cmd[CMD_BUF_SIZE];
   char parsedArgs[CMD_ARGS_SIZE][CMD_BUF_SIZE];
+
+  resetBuffers(cmd, parsedArgs);
 
   init();
 
   while (1)
   {
     printDir();
-    if (readStdin(command))
+    if (readStdin(cmd))
     {
       continue;
     }
     // Needed for fork() and execvp()
-    strcpy(cmd, command);
     // Parse the user's input
     parseStdin(cmd, parsedArgs);
     // Handle all commands
-    cmdHandler(command, cmd, parsedArgs);
+    cmdHandler(parsedArgs);
     // Reset all the buffers
     resetBuffers(cmd, parsedArgs);
   }
